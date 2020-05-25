@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terraria Hapiness Calculator</title>
+    <title>Terraria Happiness Calculator</title>
     <style>
         html,
         body {
@@ -88,6 +88,8 @@
             const PIXEL_IMG = new Image()
             PIXEL_IMG.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
 
+            const LOCALSTORAGE_KEY = 'terraria-happiness-calculator'
+
             const BIOMES = [
                 { name: 'None', src: 'Universal_Pylon.png' },
                 { name: 'Forest', src: 'Forest_Pylon.png' },
@@ -154,7 +156,7 @@
             function getHappinessMod(relation) {
                 if (relation === RELATION.love) return 0.90
                 if (relation === RELATION.like) return 0.95
-                if (relation === RELATION.dislike) return useBuggedDislikeValue ? 1.50 : 1.05
+                if (relation === RELATION.dislike) return 1.05
                 if (relation === RELATION.hate) return 1.10
                 return 1.00
             }
@@ -308,10 +310,27 @@
                 requestAnimationFrame(update)
             }
 
+            function save() {
+                const saveData = { biomes: {} }
+                for (const char of CHARS) {
+                    saveData.biomes[char.name] = calcData[char.name].biome
+                }
+                localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(saveData))
+            }
+
+            function load() {
+                const saveDataStr = localStorage.getItem(LOCALSTORAGE_KEY)
+                if (saveDataStr) {
+                    const saveData = JSON.parse(saveDataStr)
+                    for (const name in saveData.biomes) {
+                        calcData[name].biome = saveData.biomes[name]
+                    }
+                    recalculate()
+                }
+            }
+
             const imageCache = {}
             let dirtyFlag = true
-
-            let useBuggedDislikeValue = true
 
             const calcData = {}
             for (const char of CHARS) {
@@ -339,11 +358,13 @@
                 select.addEventListener('change', e => {
                     calcData[char.name].biome = select.options[select.selectedIndex].value
                     recalculate()
+                    save()
                 })
                 const output = makeEl('output', null, divChars)
                 const span = makeEl('span', null, divChars)
                 calcSubscriptions.push(() => {
                     const data = calcData[char.name]
+                    select.value = data.biome
                     output.value = Math.round(data.value * 100) + '%'
                     span.innerHTML = data.factors.map(f => `<i style="color:${getRelationColor(f.relation)}">${f.name}</i>`).join(', ')
                 })
@@ -386,18 +407,12 @@
             makeEl('li', { textContent: 'Green: Likes' }, ulLegend)
             makeEl('li', { textContent: 'Yellow: Dislikes' }, ulLegend)
             makeEl('li', { textContent: 'Red: Hates' }, ulLegend)
-            const labelBug = makeEl('label', { textContent: 'Use bugged dislike multiplier (1.4.0.2)' }, divLegend)
-            const inputBug = makeEl('input', { type: 'checkbox', checked: useBuggedDislikeValue }, labelBug)
-            labelBug.prepend(inputBug)
-            inputBug.addEventListener('change', e => {
-                useBuggedDislikeValue = inputBug.checked
-                recalculate()
-            })
 
             window.addEventListener('resize', e => { dirtyFlag = true })
 
             update()
             recalculate()
+            load()
         })
     </script>
 </body>
